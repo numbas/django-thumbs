@@ -2,7 +2,6 @@
 
 from django.conf import settings
 
-
 # Generate thumbnails when saving objects.
 # Default: True
 THUMBS_GENERATE_THUMBNAILS = getattr(settings, "THUMBS_GENERATE_THUMBNAILS", True)

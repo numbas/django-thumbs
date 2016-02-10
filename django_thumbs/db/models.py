@@ -6,30 +6,25 @@ https://github.com/madmw/django-thumbs
 A fork of django-thumbs [http://code.google.com/p/django-thumbs/] by Antonio Melé [http://django.es].
 
 """
-import cStringIO
+import io
+from PIL import Image, ImageOps
+from django.conf import settings
+from django.core.files.base import ContentFile
 from django.db.models import ImageField
 from django.db.models.fields.files import ImageFieldFile
-from django.core.files.base import ContentFile
-from django.conf import settings
-from django_thumbs.settings import THUMBS_GENERATE_ANY_SIZE, THUMBS_GENERATE_MISSING_THUMBNAILS, THUMBS_GENERATE_THUMBNAILS
 
-try:
-    from PIL import Image, ImageOps
-except ImportError:
-    # Mac OSX
-    import Image, ImageOps
+from django_thumbs.settings import THUMBS_GENERATE_ANY_SIZE, THUMBS_GENERATE_MISSING_THUMBNAILS, \
+    THUMBS_GENERATE_THUMBNAILS
 
 
-def generate_thumb(original, size, preserve_ratio, format='JPEG'):
-    """
-    Generates a thumbnail image and returns a ContentFile object with the thumbnail
+def generate_thumb(original, size, preserve_ratio, image_format='JPEG'):
+    """Generates a thumbnail image and returns a ContentFile object with the thumbnail
 
-    Arguments:
-    original        -- The image being resized as `File`.
-    size            -- Desired thumbnail size as `tuple`. Example: (70, 100)
-    preserve_ratio  -- True if the thumbnail is to keep the aspect ratio of the full image
-    format          -- Format of the original image ('JPEG', 'PNG', ...) The thumbnail will be generated using this same format.
-
+    :param original: The image being resized as `File`.
+    :param size: Desired thumbnail size as `tuple`. Example: (70, 100)
+    :param preserve_ratio: True if the thumbnail is to keep the aspect ratio of the full image
+    :param image_format: Format of the original image ('JPEG', 'PNG', ...) The thumbnail will be generated using this same image_format.
+    :returns: ContentFile object with the thumbnail
     """
     original.seek(0)  # see http://code.djangoproject.com/ticket/8222 for details
     image = Image.open(original)
@@ -39,11 +34,11 @@ def generate_thumb(original, size, preserve_ratio, format='JPEG'):
         image.thumbnail(size, Image.ANTIALIAS)
     else:
         image = ImageOps.fit(image, size, Image.ANTIALIAS)
-    io = cStringIO.StringIO()
-    if format.upper() == 'JPG':
-        format = 'JPEG'
-    image.save(io, format)
-    return ContentFile(io.getvalue())
+    zo = io.BytesIO()
+    if image_format.upper() == 'JPG':
+        image_format = 'JPEG'
+    image.save(zo, image_format)
+    return ContentFile(zo.getvalue())
 
 
 class ImageWithThumbsFieldFile(ImageFieldFile):
@@ -61,8 +56,7 @@ class ImageWithThumbsFieldFile(ImageFieldFile):
         """Return a URL pointing to the thumbnail image of the requested size.
         If `THUMBS_GENERATE_MISSING_THUMBNAILS` is True, the thumbnail will be created if it doesn't exist on disk.
 
-        Arguments:
-        size  -- A tuple with the desired width and height. Example: (100, 100)
+        :param size: A tuple with the desired width and height. Example: (100, 100)
 
         """
         if not self:
@@ -83,11 +77,10 @@ class ImageWithThumbsFieldFile(ImageFieldFile):
     def __getattr__(self, name):
         """Return the url for the requested size.
 
-        Arguments:
-        name -- The field `url` with size suffix formatted as _WxH. Example: instance.url_100x70
+        :param name: The field `url` with size suffix formatted as _WxH. Example: instance.url_100x70
 
         """
-        if not "url_" in name:
+        if "url_" not in name:
             return getattr(super(ImageFieldFile), name)
         sizeStr = name.replace("url_", "")
         width, height = sizeStr.split("x")
@@ -106,11 +99,8 @@ class ImageWithThumbsFieldFile(ImageFieldFile):
 
     def _generate_thumb(self, image, size):
         """Generates a thumbnail of `size`.
-
-        Arguments:
-        image -- An `File` object with the image in its original size.
-        size  -- A tuple with the desired width and height. Example: (100, 100)
-
+        :param image: An `File` object with the image in its original size.
+        :param size: A tuple with the desired width and height. Example: (100, 100)
         """
         base, extension = self.name.rsplit('.', 1)
         thumb_name = self.THUMB_SUFFIX % (base, size[0], size[1], extension)
@@ -154,18 +144,15 @@ class ImageWithThumbsFieldFile(ImageFieldFile):
                         raise
 
     def thumbnail(self, widthOrSize, height=None):
-        """
-        Return the thumbnail url for an specific size. The same thing as url_[width]x[height] without the magic.
+        """Return the thumbnail url for an specific size. The same thing as url_[width]x[height] without the magic.
 
-        Arguments:
-        widthOrSize -- Width as integer or size as tuple.
-        height      -- Height as integer. Optional, will use `widthOrSize` as height if missing.
+        :param widthOrSize: Width as integer or size as tuple.
+        :param height: Height as integer. Optional, will use `widthOrSize` as height if missing.
 
-        Usage:
+        :Example:
         instance.thumbnail(48, 48)
         instance.thumbnail(64)
         instance.thumbnail( (100, 70) )
-
         """
         if type(widthOrSize) is tuple:
             size = widthOrSize
@@ -217,7 +204,8 @@ class ImageWithThumbsField(ImageField):
     """
     attr_class = ImageWithThumbsFieldFile
 
-    def __init__(self, verbose_name=None, name=None, width_field=None, height_field=None, sizes=None, preserve_ratio=False, **kwargs):
+    def __init__(self, verbose_name=None, name=None, width_field=None, height_field=None, sizes=None,
+                 preserve_ratio=False, **kwargs):
         super(ImageField, self).__init__(**kwargs)
         self.verbose_name = verbose_name
         self.name = name
