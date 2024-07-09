@@ -31,9 +31,9 @@ def generate_thumb(original, size, preserve_ratio, image_format='JPEG'):
     if image.mode not in ('L', 'RGB', 'RGBA'):
         image = image.convert('RGB')
     if preserve_ratio:
-        image.thumbnail(size, Image.ANTIALIAS)
+        image.thumbnail(size, Image.LANCZOS)
     else:
-        image = ImageOps.fit(image, size, Image.ANTIALIAS)
+        image = ImageOps.fit(image, size, Image.LANCZOS)
     zo = io.BytesIO()
     if image_format.upper() == 'JPG':
         image_format = 'JPEG'
